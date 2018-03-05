@@ -1,9 +1,15 @@
 package com.template
 
 import co.paralleluniverse.fibers.Suspendable
+import net.corda.core.contracts.Command
+import net.corda.core.contracts.requireThat
 import net.corda.core.flows.*
+import net.corda.core.identity.Party
 import net.corda.core.messaging.CordaRPCOps
 import net.corda.core.serialization.SerializationWhitelist
+import net.corda.core.transactions.SignedTransaction
+import net.corda.core.transactions.TransactionBuilder
+import net.corda.core.utilities.ProgressTracker
 import net.corda.webserver.services.WebServerPluginRegistry
 import java.util.function.Function
 import javax.ws.rs.GET
@@ -31,10 +37,28 @@ class TemplateApi(val rpcOps: CordaRPCOps) {
 // *********
 @InitiatingFlow
 @StartableByRPC
-class Initiator : FlowLogic<Unit>() {
+class Initiator(val them: Party) : FlowLogic<Unit>() {
+
+    override val progressTracker = ProgressTracker()
+
     @Suspendable
     override fun call() {
-        return Unit
+        val notary = serviceHub.networkMapCache.notaryIdentities[0]
+
+        // We create the transaction components.
+        val outputState = TemplateState("chrząszcz", ourIdentity, them)
+        val cmd = Command(TemplateContract.Commands.Action(), ourIdentity.owningKey)
+
+        // We create a transaction builder and add the components.
+        val txBuilder = TransactionBuilder(notary = notary)
+                .addOutputState(outputState, TEMPLATE_CONTRACT_ID)
+                .addCommand(cmd)
+
+        // We sign the transaction.
+        val signedTx = serviceHub.signInitialTransaction(txBuilder)
+
+        // We finalise the transaction.
+        subFlow(FinalityFlow(signedTx))
     }
 }
 
@@ -42,7 +66,16 @@ class Initiator : FlowLogic<Unit>() {
 class Responder(val counterpartySession: FlowSession) : FlowLogic<Unit>() {
     @Suspendable
     override fun call() {
-        return Unit
+        val signTransactionFlow = object : SignTransactionFlow(counterpartySession, SignTransactionFlow.tracker()) {
+            override fun checkTransaction(stx: SignedTransaction) = requireThat {
+                val output = stx.tx.outputs.single().data
+                "This must contain TemplateState." using (output is TemplateState)
+                val iou = output as TemplateState
+                "Template state contains only one ą." using (iou.data.count { it == 'ą' } == 1)
+            }
+        }
+
+        subFlow(signTransactionFlow)
     }
 }
 
