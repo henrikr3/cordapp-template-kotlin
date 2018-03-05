@@ -10,6 +10,7 @@ import net.corda.core.serialization.SerializationWhitelist
 import net.corda.core.transactions.SignedTransaction
 import net.corda.core.transactions.TransactionBuilder
 import net.corda.core.utilities.ProgressTracker
+import net.corda.core.utilities.unwrap
 import net.corda.webserver.services.WebServerPluginRegistry
 import java.util.function.Function
 import javax.ws.rs.GET
@@ -43,15 +44,26 @@ class Initiator(val them: Party) : FlowLogic<Unit>() {
 
     @Suspendable
     override fun call() {
+
+        val session = initiateFlow(them)
+
+        session.send(21)
+
+        val thirtySeven = session.receive(Int::class.java).unwrap { it }
+
+        requireThat {
+            "37 is 37" using (thirtySeven == 37)
+        }
+
         val notary = serviceHub.networkMapCache.notaryIdentities[0]
 
         // We create the transaction components.
-        val outputState = TemplateState("chrząszcz", ourIdentity, them)
+        val outputState = NewTemplateState(StateDataExtra("pręt"), ourIdentity, them, "gg")
         val cmd = Command(TemplateContract.Commands.Action(), ourIdentity.owningKey)
 
         // We create a transaction builder and add the components.
         val txBuilder = TransactionBuilder(notary = notary)
-                .addOutputState(outputState, TEMPLATE_CONTRACT_ID)
+                .addOutputState(outputState, NEW_TEMPLATE_CONTRACT_ID)
                 .addCommand(cmd)
 
         // We sign the transaction.
@@ -66,12 +78,21 @@ class Initiator(val them: Party) : FlowLogic<Unit>() {
 class Responder(val counterpartySession: FlowSession) : FlowLogic<Unit>() {
     @Suspendable
     override fun call() {
+
+        val twentyOne = counterpartySession.receive(Int::class.java).unwrap { it }
+
+        requireThat {
+           "21 is 21" using (twentyOne == 21)
+        }
+
+        counterpartySession.send(37)
+
         val signTransactionFlow = object : SignTransactionFlow(counterpartySession, SignTransactionFlow.tracker()) {
             override fun checkTransaction(stx: SignedTransaction) = requireThat {
                 val output = stx.tx.outputs.single().data
-                "This must contain TemplateState." using (output is TemplateState)
-                val iou = output as TemplateState
-                "Template state contains only one ą." using (iou.data.count { it == 'ą' } == 1)
+                "This must contain NewTemplateState." using (output is NewTemplateState)
+                val iou = output as NewTemplateState
+                "Template state contains only one ą." using (iou.data.s.count { it == 'ę' } == 1)
             }
         }
 
