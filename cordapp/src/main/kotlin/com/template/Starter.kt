@@ -35,12 +35,13 @@ private class TemplateClientStarter {
 
         logger.info("Started {}", startFlow.id)
 
-        startFlow.returnValue.getOrThrow()
+        logger.info("Returned: {}" , startFlow.returnValue.getOrThrow())
 
+        exitProcess(0)
 
-        startFlow.returnValue.then { f ->
-            logger.info("Returned: {}", f)
-            exitProcess(0)
-        }
+//        startFlow.returnValue.toCompletableFuture(). then { f ->
+//            logger.info("Returned: {}", f.get)
+//            exitProcess(0)
+//        }
     }
 }

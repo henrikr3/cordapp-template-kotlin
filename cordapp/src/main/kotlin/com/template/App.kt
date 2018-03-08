@@ -1,8 +1,7 @@
 package com.template
 
 import co.paralleluniverse.fibers.Suspendable
-import net.corda.core.contracts.Command
-import net.corda.core.contracts.requireThat
+import net.corda.core.contracts.*
 import net.corda.core.flows.*
 import net.corda.core.identity.Party
 import net.corda.core.messaging.CordaRPCOps
@@ -49,7 +48,7 @@ class Initiator(val them: Party) : FlowLogic<Unit>() {
 
         session.send(21)
 
-        val thirtySeven = session.receive(Int::class.java).unwrap { it }
+        val thirtySeven = session.receive(Integer::class.java).unwrap { it as Int }
 
         requireThat {
             "37 is 37" using (thirtySeven == 37)
@@ -59,7 +58,7 @@ class Initiator(val them: Party) : FlowLogic<Unit>() {
 
         // We create the transaction components.
         val outputState = NewTemplateState(StateDataExtra("pręt"), ourIdentity, them, "gg")
-        val cmd = Command(TemplateContract.Commands.Action(), ourIdentity.owningKey)
+        val cmd = Command(NewTemplateContract.Commands.Issue(), listOf(ourIdentity.owningKey, them.owningKey))
 
         // We create a transaction builder and add the components.
         val txBuilder = TransactionBuilder(notary = notary)
@@ -69,8 +68,10 @@ class Initiator(val them: Party) : FlowLogic<Unit>() {
         // We sign the transaction.
         val signedTx = serviceHub.signInitialTransaction(txBuilder)
 
+        val verySignedTx = subFlow(CollectSignaturesFlow(signedTx, listOf(session)))
+
         // We finalise the transaction.
-        subFlow(FinalityFlow(signedTx))
+        subFlow(FinalityFlow(verySignedTx))
     }
 }
 
@@ -79,7 +80,7 @@ class Responder(val counterpartySession: FlowSession) : FlowLogic<Unit>() {
     @Suspendable
     override fun call() {
 
-        val twentyOne = counterpartySession.receive(Int::class.java).unwrap { it }
+        val twentyOne = counterpartySession.receive(Integer::class.java).unwrap { it as Int }
 
         requireThat {
            "21 is 21" using (twentyOne == 21)
@@ -92,11 +93,46 @@ class Responder(val counterpartySession: FlowSession) : FlowLogic<Unit>() {
                 val output = stx.tx.outputs.single().data
                 "This must contain NewTemplateState." using (output is NewTemplateState)
                 val iou = output as NewTemplateState
-                "Template state contains only one ą." using (iou.data.s.count { it == 'ę' } == 1)
+                "Template state contains only one ę." using (iou.data.s.count { it == 'ę' } == 1)
             }
         }
 
         subFlow(signTransactionFlow)
+    }
+}
+
+@InitiatingFlow
+@StartableByRPC
+class Nullify(val stateRef: StateRef) : FlowLogic<Unit>() {
+
+    object NULLING : ProgressTracker.Step("Nulling")
+
+    override val progressTracker = ProgressTracker(NULLING)
+
+    @Suspendable
+    override fun call() {
+
+        val notary = serviceHub.networkMapCache.notaryIdentities[0]
+
+        val toNull: TransactionState<NewTemplateState> = serviceHub.loadState(stateRef) as TransactionState<NewTemplateState>
+
+        // We create the transaction components.
+        val outputState = NullifyConfirmation(toNull.data.data.s, toNull.data.me)
+        val cmd = Command(NullifyContract.Commands.Null(), ourIdentity.owningKey)
+
+        // We create a transaction builder and add the components.
+        val txBuilder = TransactionBuilder(notary = notary)
+                .addInputState(StateAndRef(toNull, stateRef))
+                .addOutputState(outputState, NULLIFY_CONTRACT_ID)
+                .addCommand(cmd)
+
+        progressTracker.currentStep = NULLING
+
+        // We sign the transaction.
+        val signedTx = serviceHub.signInitialTransaction(txBuilder)
+
+        // We finalise the transaction.
+        subFlow(FinalityFlow(signedTx))
     }
 }
 
