@@ -1,9 +1,15 @@
 package com.template
 
 import co.paralleluniverse.fibers.Suspendable
+import net.corda.core.contracts.UniqueIdentifier
 import net.corda.core.flows.*
+import net.corda.core.identity.CordaX500Name
+import net.corda.core.identity.Party
 import net.corda.core.messaging.CordaRPCOps
+import net.corda.core.node.services.queryBy
+import net.corda.core.node.services.vault.QueryCriteria
 import net.corda.core.serialization.SerializationWhitelist
+import net.corda.core.transactions.TransactionBuilder
 import net.corda.webserver.services.WebServerPluginRegistry
 import java.util.function.Function
 import javax.ws.rs.GET
@@ -12,59 +18,37 @@ import javax.ws.rs.Produces
 import javax.ws.rs.core.MediaType
 import javax.ws.rs.core.Response
 
-// *****************
-// * API Endpoints *
-// *****************
-@Path("template")
-class TemplateApi(val rpcOps: CordaRPCOps) {
-    // Accessible at /api/template/templateGetEndpoint.
-    @GET
-    @Path("templateGetEndpoint")
-    @Produces(MediaType.APPLICATION_JSON)
-    fun templateGetEndpoint(): Response {
-        return Response.ok("Template GET endpoint.").build()
-    }
-}
+val PARTY_A_NAME = CordaX500Name("PartyA", "London", "GB")
+val PARTY_B_NAME = CordaX500Name("PartyB", "London", "GB")
+val PARTY_C_NAME = CordaX500Name("PartyC", "London", "GB")
+val PARTY_D_NAME = CordaX500Name("PartyD", "London", "GB")
 
-// *********
-// * Flows *
-// *********
 @InitiatingFlow
 @StartableByRPC
-class Initiator : FlowLogic<Unit>() {
+class Initiator(val participants: List<Party>, val inputId: UniqueIdentifier? = null) : FlowLogic<UniqueIdentifier>() {
     @Suspendable
-    override fun call() {
-        // Flow implementation goes here
+    override fun call(): UniqueIdentifier {
+        val notary = serviceHub.networkMapCache.notaryIdentities.first()
+        val txBuilder = TransactionBuilder(notary)
+
+        val linearId = if (inputId != null) {
+            val criteria = QueryCriteria.LinearStateQueryCriteria(linearId = listOf(inputId))
+            val inputStateAndRef = serviceHub.vaultService.queryBy<TemplateState>(criteria).states.single()
+            val outputState = TemplateState(participants, inputId)
+            txBuilder
+                    .addInputState(inputStateAndRef)
+                    .addOutputState(outputState, TemplateContract.ID)
+                    .addCommand(TemplateContract.Commands.Action(), ourIdentity.owningKey)
+            inputId
+        } else {
+            val templateState = TemplateState(participants)
+            txBuilder
+                    .addOutputState(templateState, TemplateContract.ID)
+                    .addCommand(TemplateContract.Commands.Action(), ourIdentity.owningKey)
+            templateState.linearId
+        }
+        val stx = serviceHub.signInitialTransaction(txBuilder)
+        subFlow(FinalityFlow(stx))
+        return linearId
     }
 }
-
-@InitiatedBy(Initiator::class)
-class Responder(val counterpartySession: FlowSession) : FlowLogic<Unit>() {
-    @Suspendable
-    override fun call() {
-        // Flow implementation goes here
-    }
-}
-
-// ***********
-// * Plugins *
-// ***********
-class TemplateWebPlugin : WebServerPluginRegistry {
-    // A list of lambdas that create objects exposing web JAX-RS REST APIs.
-    override val webApis: List<Function<CordaRPCOps, out Any>> = listOf(Function(::TemplateApi))
-    //A list of directories in the resources directory that will be served by Jetty under /web.
-    // This template's web frontend is accessible at /web/template.
-    override val staticServeDirs: Map<String, String> = mapOf(
-        // This will serve the templateWeb directory in resources to /web/template
-        "template" to javaClass.classLoader.getResource("templateWeb").toExternalForm()
-    )
-}
-
-// Serialization whitelist.
-class TemplateSerializationWhitelist : SerializationWhitelist {
-    override val whitelist: List<Class<*>> = listOf(TemplateData::class.java)
-}
-
-// This class is not annotated with @CordaSerializable, so it must be added to the serialization whitelist, above, if
-// we want to send it to other nodes within a flow.
-data class TemplateData(val payload: String)
