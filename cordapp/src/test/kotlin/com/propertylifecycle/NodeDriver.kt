@@ -1,4 +1,4 @@
-package com.template
+package com.propertylifecycle
 
 import net.corda.core.identity.CordaX500Name
 import net.corda.core.utilities.getOrThrow
@@ -20,13 +20,11 @@ import net.corda.testing.node.User
  * 5. Run the "Debug CorDapp" remote debug run configuration.
  */
 fun main(args: Array<String>) {
-    val user = User("user1", "test", permissions = setOf("ALL"))
+    val user = User("builder1", "test", permissions = setOf("ALL"))
     driver(DriverParameters(isDebug = true, waitForAllNodesToFinish = true)) {
-        val (partyA, partyB) = listOf(
-                startNode(providedName = CordaX500Name("PartyA", "London", "GB"), rpcUsers = listOf(user)),
-                startNode(providedName = CordaX500Name("PartyB", "New York", "US"), rpcUsers = listOf(user))).map { it.getOrThrow() }
+        val (builder) = listOf(
+                startNode(providedName = CordaX500Name("Builder", "London", "GB"), rpcUsers = listOf(user))).map { it.getOrThrow() }
 
-        startWebserver(partyA)
-        startWebserver(partyB)
+        startWebserver(builder)
     }
 }

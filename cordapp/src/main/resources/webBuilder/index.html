@@ -1,0 +1,76 @@
+<!-- Define your frontend here. -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Builder UI</title>
+    <script src="js/jquery-3.3.1.min.js"></script>
+    <script src="js/jsviews.min.js"></script>
+</head>
+<body>
+    <div>Frontend for Builders.</div>
+    <button onclick="BuildingNew();">Build new building</button>
+    <div id="buildingsDIV"></div>
+
+    <script id="templateBuildings" type="text/x-jsrender">
+        <H2>Buildings:</H2>
+        <ul>
+            {^{for buildings}}
+            <li><button onclick="BuildingSell({{:id}})">Sell building: {{:address}} for {{:price}}</button></li>
+            {{/for}}
+        </ul>
+    </script>
+
+    <script>
+        async function post(url, data)
+        {
+            var result = null;
+            try {
+                result = await $.ajax({
+                    url: url, method: "POST", data: JSON.stringify(data), contentType: "application/json"
+                });
+            } catch (exception) { result = null; }
+            return new Promise(function(resolve, reject) { resolve(result); });
+        }
+        var data = {buildings:[]};
+        function PageData()
+        {
+            $.templates("#templateBuildings").link("#buildingsDIV", data);
+            FetchBuildings();
+        }
+
+        async function FetchBuildings() {
+            console.log("FetchBuildings");
+            try {
+				var buildings = await $.get("/api/builder/buildings/");
+				$.observable(data.buildings).refresh(buildings);
+            } catch (exception) { result = null; }
+            console.log(data.buildings);
+        }
+
+        async function BuildingNew()
+        {
+            console.log("BuildingNew");
+            var newBuilding = { address: "Random", price: Math.random() * 900000 + 125000 };
+            var result = await post("/api/builder/building/new", newBuilding);
+            console.log(result);
+            if(result != null && result.status == "success") {
+                FetchBuildings();
+            }
+        }
+        async function BuildingSell(id)
+        {
+            console.log("BuildingSell");
+            var result = await post("/api/builder/building/"+id+"/sell");
+            console.log(result);
+            if(result != null && result.status == "success") {
+                console.log("Building sold.");
+            }
+        }
+
+        $(document).ready(function(){
+            PageData();
+        });
+    </script>
+</body>
+</html>

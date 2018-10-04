@@ -1,13 +1,8 @@
-package com.template
-
-import net.corda.testing.node.MockNetwork
-import org.junit.After
-import org.junit.Before
-import org.junit.Test
+package com.propertylifecycle.flow
 
 class FlowTests {
-
-    private val network = MockNetwork(listOf("com.template"))
+/*
+    private val network = MockNetwork(listOf("com.propertylifecycle"))
     private val a = network.createNode()
     private val b = network.createNode()
 
@@ -26,5 +21,5 @@ class FlowTests {
     @Test
     fun `dummy test`() {
 
-    }
+    }*/
 }

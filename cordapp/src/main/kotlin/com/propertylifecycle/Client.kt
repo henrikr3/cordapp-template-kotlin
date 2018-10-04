@@ -1,4 +1,4 @@
-package com.template
+package com.propertylifecycle
 
 import net.corda.client.rpc.CordaRPCClient
 import net.corda.core.contracts.StateAndRef
@@ -23,7 +23,7 @@ private class TemplateClient {
         val nodeAddress = parse(args[0])
         val client = CordaRPCClient(nodeAddress)
 
-        // Can be amended in the com.template.MainKt file.
+        // Can be amended in the com.propertylifecycle.MainKt file.
         val proxy = client.start("user1", "test").proxy
 
         // Grab all existing TemplateStates and all future TemplateStates.
