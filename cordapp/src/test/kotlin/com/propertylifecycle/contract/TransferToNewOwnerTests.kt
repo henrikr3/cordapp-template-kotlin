@@ -18,10 +18,10 @@ class TransferToNewOwnerTests {
     class DummyCommand : TypeOnlyCommandData()
 
     private var ledgerServices = MockServices(listOf("com.propertylifecycle"))
-    private val TestBuilding125k = BuildingState(TEST_ADDRESS1, 125000.POUNDS, TEST_BUILDER.party, null, null)
-    private val TestBuilding125kToOwner1 = BuildingState(TEST_ADDRESS1, 125000.POUNDS, TEST_OWNER1.party, TEST_BUILDER.party, TEST_OWNER1.party)
-    private val TestBuilding125kToOwner1WithNoValue = BuildingState(TEST_ADDRESS1, 0.POUNDS, TEST_OWNER1.party, TEST_BUILDER.party, TEST_OWNER1.party)
-    private val TestBuilding125kToOwner1UsingCHF = BuildingState(TEST_ADDRESS1, 115000.SWISS_FRANCS, TEST_OWNER1.party, TEST_BUILDER.party, TEST_OWNER1.party)
+    private val TestBuilding125k = BuildingState(TEST_ADDRESS1, 125000.POUNDS, TEST_BUILDER.party, null)
+    private val TestBuilding125kToOwner1 = BuildingState(TEST_ADDRESS1, 125000.POUNDS, TEST_OWNER1.party, TEST_BUILDER.party)
+    private val TestBuilding125kToOwner1WithNoValue = BuildingState(TEST_ADDRESS1, 0.POUNDS, TEST_OWNER1.party, TEST_BUILDER.party)
+    private val TestBuilding125kToOwner1UsingCHF = BuildingState(TEST_ADDRESS1, 115000.SWISS_FRANCS, TEST_OWNER1.party, TEST_BUILDER.party)
 
     /**
      * Test to ensure TransferToNewOwner is working.
@@ -111,8 +111,8 @@ class TransferToNewOwnerTests {
      */
     @Test
     fun ensureBuyerSellerAndOwnerChangeCorrectly() {
-        val TestBuilding125kToOwner1WithWrongBuyer = BuildingState(TEST_ADDRESS1, 125000.POUNDS, TEST_OWNER2.party, TEST_OWNER1.party, TEST_OWNER1.party)
-        val TestBuilding125kToOwner1WithWrongSeller = BuildingState(TEST_ADDRESS1, 125000.POUNDS, TEST_OWNER2.party, TEST_BUILDER.party, TEST_BUILDER.party)
+        val TestBuilding125kToOwner1WithWrongBuyer = BuildingState(TEST_ADDRESS1, 125000.POUNDS, TEST_OWNER2.party, TEST_OWNER1.party)
+        val TestBuilding125kToOwner1WithWrongSeller = BuildingState(TEST_ADDRESS1, 125000.POUNDS, TEST_OWNER2.party, TEST_BUILDER.party)
         ledgerServices.ledger {
             transaction {
                 input(BuildingContract.CONTRACT_ID, TestBuilding125k)

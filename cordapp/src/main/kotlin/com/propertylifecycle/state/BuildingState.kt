@@ -19,16 +19,14 @@ data class BuildingState(val address: Address,
                          val value: Amount<Currency>,
                          val owner: Party,
                          val seller: Party?,
-                         val buyer: Party?,
                          override val linearId: UniqueIdentifier = UniqueIdentifier(id = UUID.randomUUID()))
     : LinearState {
-    override val participants: List<Party> get() = listOfNotNull(owner, buyer, seller)
+    override val participants: List<Party> get() = listOfNotNull(owner, seller)
 
     public fun transferToNewOwner(newOwner: Party) : BuildingState {
         return this.copy(
                 address = this.address,
                 seller = this.owner,
-                buyer = newOwner, // Is buyer field needed at all?
                 owner = newOwner,
                 value = this.value,
                 linearId = this.linearId)

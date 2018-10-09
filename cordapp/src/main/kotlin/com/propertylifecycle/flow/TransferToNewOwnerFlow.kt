@@ -17,7 +17,11 @@ import net.corda.core.flows.SignTransactionFlow
 import net.corda.core.flows.StartableByRPC
 import com.propertylifecycle.contract.BuildingContract
 import com.propertylifecycle.state.BuildingState
-import net.corda.core.crypto.toStringShort
+import net.corda.core.contracts.UniqueIdentifier
+import net.corda.core.identity.Party
+import net.corda.core.node.services.queryBy
+import net.corda.core.node.services.vault.QueryCriteria
+import java.security.PublicKey
 
 /**
  * This is the flow which handles issuance of new buildings on the ledger.
@@ -26,19 +30,38 @@ import net.corda.core.crypto.toStringShort
  */
 @InitiatingFlow
 @StartableByRPC
-class IssueNewBuildingFlow(val state: BuildingState) : FlowLogic<SignedTransaction>() {
+class TransferToNewOwnerFlow(val linearId: UniqueIdentifier, val newOwner: Party) : FlowLogic<SignedTransaction>() {
     @Suspendable
     override fun call(): SignedTransaction {
+        val queryCriteria = QueryCriteria.LinearStateQueryCriteria(linearId = listOf(linearId))
+        val stateAndRef = serviceHub.vaultService.queryBy<BuildingState>(queryCriteria).states.single()
+        val previousState = stateAndRef.state.data
+        val stateWithNewOwner: BuildingState = previousState.transferToNewOwner(newOwner)
+
+        if(previousState.owner != ourIdentity) {
+            throw java.lang.IllegalArgumentException("Only the current owner can execute this flow!")
+        }
         val notary = this.serviceHub.networkMapCache.notaryIdentities.single()
 
+        val signers: Sequence<Party>
+        val participants: Sequence<Party>
+        if(previousState.seller != null) {
+            signers = (previousState.participants - previousState.seller + newOwner).asSequence()
+            participants = (previousState.participants - previousState.owner - previousState.seller + newOwner).asSequence()
+        } else {
+            signers = (previousState.participants + newOwner).asSequence()
+            participants = (previousState.participants - previousState.owner + newOwner).asSequence()
+        }
+
         val transactionBuilder = TransactionBuilder(notary).withItems(
-                Command(BuildingContract.Commands.IssueNewBuilding(), state.participants.map { it.owningKey }),
-                StateAndContract(state, BuildingContract.CONTRACT_ID))
+                stateAndRef,
+                Command(BuildingContract.Commands.TransferToNewOwner(), signers.map { it.owningKey }.toList()),
+                StateAndContract(stateWithNewOwner, BuildingContract.CONTRACT_ID))
 
         transactionBuilder.verify(serviceHub)
         val signedTransaction = serviceHub.signInitialTransaction(transactionBuilder)
 
-        val sessionsToCollectFrom = (state.participants - ourIdentity).asSequence().map { initiateFlow(it) }.toSet()
+        val sessionsToCollectFrom = participants.map { initiateFlow(it) }.toSet()
         val stx = subFlow(CollectSignaturesFlow(signedTransaction, sessionsToCollectFrom))
 
         return subFlow(FinalityFlow(stx))
@@ -49,8 +72,8 @@ class IssueNewBuildingFlow(val state: BuildingState) : FlowLogic<SignedTransacti
  * This is the flow which signs new building issuances.
  * The signing is handled by the [SignTransactionFlow].
  */
-@InitiatedBy(IssueNewBuildingFlow::class)
-class IssueNewBuildingFlowResponder(val flowSession: FlowSession): FlowLogic<Unit>() {
+@InitiatedBy(TransferToNewOwnerFlow::class)
+class TransferToNewOwnerFlowResponder(val flowSession: FlowSession): FlowLogic<Unit>() {
     @Suspendable
     override fun call() {
         val signedTransactionFlow = object : SignTransactionFlow(flowSession) {

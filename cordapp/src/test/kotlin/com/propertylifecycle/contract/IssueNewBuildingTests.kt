@@ -20,12 +20,11 @@ class IssueNewBuildingTests {
     // A pre-defined dummy command.
     class DummyCommand : TypeOnlyCommandData()
     private var ledgerServices = MockServices(listOf("com.propertylifecycle"))
-    private val TestBuilding125k = BuildingState(TEST_ADDRESS1, 125000.POUNDS, TEST_BUILDER.party, null, null)
-    private val TestBuilding0k = BuildingState(TEST_ADDRESS1, 0.POUNDS, TEST_BUILDER.party, null, null)
-    private val TestBuilding5kUSD = BuildingState(TEST_ADDRESS1, 5000.DOLLARS, TEST_BUILDER.party, null, null)
-    private val TestBuilding10kCHF = BuildingState(TEST_ADDRESS1, 10000.SWISS_FRANCS, TEST_BUILDER.party, null, null)
-    private val TestBuildingWithSeller = BuildingState(TEST_ADDRESS1, 5000.DOLLARS, TEST_BUILDER.party, TEST_OWNER1.party, null)
-    private val TestBuildingWithBuyer = BuildingState(TEST_ADDRESS1, 5000.DOLLARS, TEST_BUILDER.party, null, TEST_OWNER2.party)
+    private val TestBuilding125k = BuildingState(TEST_ADDRESS1, 125000.POUNDS, TEST_BUILDER.party, null)
+    private val TestBuilding0k = BuildingState(TEST_ADDRESS1, 0.POUNDS, TEST_BUILDER.party, null)
+    private val TestBuilding5kUSD = BuildingState(TEST_ADDRESS1, 5000.DOLLARS, TEST_BUILDER.party, null)
+    private val TestBuilding10kCHF = BuildingState(TEST_ADDRESS1, 10000.SWISS_FRANCS, TEST_BUILDER.party, null)
+    private val TestBuildingWithSeller = BuildingState(TEST_ADDRESS1, 5000.DOLLARS, TEST_BUILDER.party, TEST_OWNER1.party)
 
     /**
      * Test to ensure IssueNewBuilding is working.
@@ -123,11 +122,6 @@ class IssueNewBuildingTests {
     @Test
     fun lenderAndBorrowerCannotBeTheSame() {
         ledgerServices.ledger {
-            transaction {
-                command(listOf(TEST_BUILDER.publicKey),BuildingContract.Commands.IssueNewBuilding())
-                output(BuildingContract.CONTRACT_ID, TestBuildingWithBuyer)
-                this `fails with` "There should be no buyer."
-            }
             transaction {
                 command(listOf(TEST_BUILDER.publicKey),BuildingContract.Commands.IssueNewBuilding())
                 output(BuildingContract.CONTRACT_ID, TestBuildingWithSeller)

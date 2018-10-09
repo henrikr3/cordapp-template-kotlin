@@ -3,17 +3,7 @@ package com.propertylifecycle.contract
 import net.corda.core.contracts.*
 import net.corda.core.transactions.LedgerTransaction
 import com.propertylifecycle.state.BuildingState
-/*
-import net.corda.finance.contracts.asset.Cash
-import net.corda.finance.utils.sumCash
-import net.corda.core.contracts.*
-import net.corda.core.contracts.Requirements.using
 import net.corda.core.identity.Party
-import net.corda.finance.contracts.asset.CASH
-import net.corda.core.internal.signWithCert
-import java.util.*
-import net.corda.finance.utils.sumCash
-*/
 
 /**
  * This is where you'll add the contract code which defines how the [BuildingState] behaves.
@@ -48,7 +38,6 @@ class BuildingContract : Contract {
                 val state = tx.outputStates.single() as BuildingState
                 "A new building must have a positive value." using (state.value.quantity > 0)
                 "There should be no seller." using (state.seller == null)
-                "There should be no buyer." using (state.buyer == null)
                 "Check participants have signed." using
                         (command.signers.toSet() == state.participants.map { it.owningKey }.toSet())
             }
@@ -60,18 +49,15 @@ class BuildingContract : Contract {
                 val outputState = tx.outputStates.single() as BuildingState
                 "Address should not change." using (outputState.address.equals(outputState.address))
                 "Owner property should change." using (!inputState.owner.equals(outputState.owner))
-                "Buyer cannot be null." using (outputState.buyer != null)
-                "Buyer property should change." using (!outputState.buyer!!.equals(inputState.buyer))
                 "Seller cannot be null." using (outputState.seller != null)
                 "Seller property should change." using (!outputState.seller!!.equals(inputState.seller))
                 "Seller should be previous owner." using (inputState.owner.equals(outputState.seller))
-                "Owner should be new owner." using (outputState.owner.equals(outputState.buyer))
 
                 "A building must have a positive value." using (outputState.value.quantity > 0)
 
-                "The buyer, old owner and seller must sign the building transfer transaction." using
-                        (command.signers.toSet() == (inputState.participants.map { it.owningKey }.toSet() `union`
-                                outputState.participants.map { it.owningKey }.toSet()))
+                val expectedSigners: List<Party> = (outputState.participants + inputState.owner).toList()
+                "The owner and seller must sign the building transfer transaction." using
+                        (command.signers.toSet() == expectedSigners.map { it.owningKey }.toSet())
             }
 
             is Commands.ListBuildingForSale -> requireThat{
